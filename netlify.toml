@@ -6,8 +6,11 @@
   command = "npm run build"
 
 [[redirects]]
+  # NOTE: Aapko pehle apna backend (server.ts) Render.com par deploy karna hoga.
+  # Jab wahan se link mil jaye (e.g., https://my-whisper-app.onrender.com),
+  # tab 'to' wala link us se replace karein:
   from = "/api/*"
-  to = "https://your-backend-service.onrender.com/api/:splat"
+  to = "https://your-backend-service.onrender.com/api/:splat" 
   status = 200
   force = true
 

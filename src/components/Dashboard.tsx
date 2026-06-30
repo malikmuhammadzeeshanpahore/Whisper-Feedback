@@ -5,6 +5,8 @@ import {
   Search, Lock, EyeOff, Sparkles, Inbox, Calendar, Loader2, AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface DashboardProps {
   session: UserSession;
@@ -27,16 +29,24 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
     if (!isSilent) setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/messages", {
-        headers: {
-          Authorization: `Bearer ${session.token}`
-        }
+      const q = query(
+        collection(db, "messages"),
+        where("recipientUsername", "==", session.username.toLowerCase())
+      );
+      const querySnapshot = await getDocs(q);
+      const msgs: Message[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        msgs.push({
+          id: docSnap.id,
+          recipientUsername: data.recipientUsername,
+          text: data.text,
+          createdAt: data.createdAt
+        });
       });
-      if (!response.ok) {
-        throw new Error("Failed to load messages.");
-      }
-      const data = await response.json();
-      setMessages(data.messages || []);
+      // Sort descending by date
+      msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setMessages(msgs);
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
@@ -63,17 +73,8 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
   const handleDeleteMessage = async (id: string) => {
     setDeletingId(id);
     try {
-      const response = await fetch(`/api/messages/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.token}`
-        }
-      });
-      if (response.ok) {
-        setMessages(prev => prev.filter(m => m.id !== id));
-      } else {
-        throw new Error("Could not delete message.");
-      }
+      await deleteDoc(doc(db, "messages", id));
+      setMessages(prev => prev.filter(m => m.id !== id));
     } catch (err: any) {
       alert(err.message || "Failed to delete message");
     } finally {

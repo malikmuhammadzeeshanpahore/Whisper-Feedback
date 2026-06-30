@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { ViewType, UserSession } from "../types";
 import { User, Lock, LogIn, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
+import CryptoJS from "crypto-js";
 
 interface LoginProps {
   onNavigate: (view: ViewType) => void;
@@ -26,21 +29,27 @@ export default function Login({ onNavigate, onLoginSuccess }: LoginProps) {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed. Please check your credentials.");
+      const cleanUsername = username.trim().toLowerCase();
+      
+      const userRef = doc(db, "users", cleanUsername);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        throw new Error("Invalid username or password.");
       }
+      
+      const userData = userSnap.data();
+      const passwordHash = CryptoJS.SHA256(password).toString();
+      
+      if (userData.passwordHash !== passwordHash) {
+        throw new Error("Invalid username or password.");
+      }
+      
+      const mockToken = btoa(cleanUsername) + "." + CryptoJS.SHA256(cleanUsername + "secret").toString();
 
       onLoginSuccess({
-        username: data.username,
-        token: data.token
+        username: userData.username,
+        token: mockToken
       });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");

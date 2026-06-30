@@ -2,6 +2,9 @@ import React, { useState } from "react";
 import { ViewType, UserSession } from "../types";
 import { User, Lock, UserPlus, AlertCircle, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../firebase";
+import CryptoJS from "crypto-js";
 
 interface SignupProps {
   onNavigate: (view: ViewType) => void;
@@ -40,21 +43,32 @@ export default function Signup({ onNavigate, onSignupSuccess }: SignupProps) {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: username.trim(), password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed. Username may already exist.");
+      const cleanUsername = username.trim().toLowerCase();
+      
+      // Check if user exists
+      const userRef = doc(db, "users", cleanUsername);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        throw new Error("Username is already taken.");
       }
+      
+      // Hash password using SHA256 from crypto-js
+      const passwordHash = CryptoJS.SHA256(password).toString();
+      
+      // Create user
+      await setDoc(userRef, {
+        username: username.trim(),
+        passwordHash,
+        createdAt: new Date().toISOString()
+      });
+      
+      // Generate a mock token for frontend session
+      const mockToken = btoa(cleanUsername) + "." + CryptoJS.SHA256(cleanUsername + "secret").toString();
 
       onSignupSuccess({
-        username: data.username,
-        token: data.token
+        username: username.trim(),
+        token: mockToken
       });
     } catch (err: any) {
       setError(err.message || "Something went wrong.");

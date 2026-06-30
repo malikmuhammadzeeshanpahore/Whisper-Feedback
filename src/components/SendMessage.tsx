@@ -5,6 +5,8 @@ import {
   HelpCircle, EyeOff, Plus, HelpCircle as HelpIcon, ArrowRight, Loader2
 } from "lucide-react";
 import { motion } from "motion/react";
+import { collection, addDoc, doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface SendMessageProps {
   recipientUsername: string;
@@ -36,11 +38,13 @@ export default function SendMessage({ recipientUsername, onNavigate }: SendMessa
     const checkUser = async () => {
       setChecking(true);
       try {
-        const response = await fetch(`/api/user/check/${recipientUsername}`);
-        const data = await response.json();
-        if (data.exists) {
+        const lowerUsername = recipientUsername.trim().toLowerCase();
+        const userRef = doc(db, "users", lowerUsername);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
           setRecipientExists(true);
-          setRecipientExactName(data.username);
+          setRecipientExactName(userSnap.data().username);
         } else {
           setRecipientExists(false);
         }
@@ -74,19 +78,13 @@ export default function SendMessage({ recipientUsername, onNavigate }: SendMessa
     setLoading(true);
 
     try {
-      const response = await fetch("/api/messages/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipientUsername: recipientExactName || recipientUsername,
-          text: cleanText
-        })
+      const lowerRecipient = (recipientExactName || recipientUsername).trim().toLowerCase();
+      
+      await addDoc(collection(db, "messages"), {
+        recipientUsername: lowerRecipient,
+        text: cleanText,
+        createdAt: new Date().toISOString()
       });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to deliver message.");
-      }
 
       setSuccess(true);
       setText("");
