@@ -1,0 +1,6 @@
+{
+  "name": "Whisper Feedback",
+  "description": "An anonymous feedback app where users register to get a unique shareable feedback link, and visitors can leave secure, anonymous messages without registration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
